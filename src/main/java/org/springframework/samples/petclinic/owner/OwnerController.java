@@ -15,22 +15,21 @@
  */
 package org.springframework.samples.petclinic.owner;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.samples.petclinic.model.PetModel;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -121,12 +120,12 @@ class OwnerController {
 	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
 			Model model) {
 		// allow parameterless GET request for /owners to return all records
-		logger.debug("Processing find form for Owner with last name: {}", owner.getLastName());
+//		logger.debug("Processing find form for Owner with last name: {}", owner.getLastName());
 		if (owner.getLastName() == null) {
 			owner.setLastName("");
 		}
 
-		logger.debug("Page number: {}", page);
+//		logger.debug("Page number: {}", page);
 		Pageable pageable = PageRequest.of(page - 1, 5); // Asegúrate de que pageSize es al menos 1
 
 		UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(ownerServiceUrl + "/owners/search")
@@ -134,14 +133,14 @@ class OwnerController {
 			.queryParam("page", pageable.getPageNumber())
 			.queryParam("size", pageable.getPageSize());
 
-		logger.debug("uriBuilder: {}",uriBuilder.toUriString());
+//		logger.debug("uriBuilder: {}",uriBuilder.toUriString());
 
 		// Capturar la respuesta como una cadena de texto
 		try {
 			RestTemplate simpleRestTemplate = new RestTemplate();
 			ResponseEntity<String> responseEntity = simpleRestTemplate.exchange(uriBuilder.toUriString(), HttpMethod.GET, null, String.class);
 			String responseString = responseEntity.getBody();
-			logger.debug("Response from microservice: {}", responseString);
+//			logger.debug("Response from microservice: {}", responseString);
 
 			// Deserializar la respuesta capturada
 			OwnerModelPage ownersResults = objectMapper.readValue(responseString, OwnerModelPage.class);
@@ -170,29 +169,34 @@ class OwnerController {
 	private String addPaginationModel(int page, Model model, OwnerModelPage paginated) {
 		List<OwnerModel> listOwners = paginated.getEmbeddedOwnerModelList().getOwnerModels();
 
-//		for (OwnerModel ownerModel : listOwners) {
-//			// Consulta a la base de datos del sistema heredado para obtener los PetModel
-//			String sql = "SELECT id, name, birth_date, type FROM pets WHERE owner_id = ?";
-//			List<PetModel> pets = jdbcTemplate.query(
-//				sql,
-//				new Object[]{ownerModel.getId()},
-//				(rs, rowNum) -> {
-//					PetModel pet = new PetModel();
-//					pet.setId(rs.getInt("id"));
-//					pet.setName(rs.getString("name"));
-//					pet.setBirthDate(rs.getString("birth_date"));
-//					pet.setType(rs.getString("type"));
-//					return pet;
-//				}
-//			);
-//			ownerModel.setPets(pets);
-//		}
+		for (OwnerModel ownerModel : listOwners) {
+			// Consulta a la base de datos del sistema heredado para obtener los PetModel
+			String sql = "SELECT id, name, birth_date, type_id FROM pets WHERE owner_id = ?";
+//			logger.debug("SQL: {}", sql);
+			List<Pet> pets = jdbcTemplate.query(
+				sql,
+				new Object[]{ownerModel.getId()},
+				(rs, rowNum) -> {
+					Pet pet = new Pet();
+					pet.setId(rs.getInt("id"));
+					pet.setName(rs.getString("name"));
+//					logger.debug("Pet name: {}",pet.getName());
+					pet.setBirthDate(LocalDate.parse(rs.getString("birth_date")));
+					PetType petType=new PetType();
+					petType.setId(rs.getInt("type_id"));
+					pet.setType(petType);
+
+					return pet;
+				}
+			);
+			ownerModel.setPets(pets);
+		}
 
 		model.addAttribute("currentPage", page);
 		model.addAttribute("totalPages", paginated.getMetadata().getTotalPages());
 		model.addAttribute("totalItems", paginated.getMetadata().getTotalElements());
 		model.addAttribute("listOwners", listOwners);
-		logger.debug("Pagination model added: {} Owners on page {}", listOwners.size(), page);
+//		logger.debug("Pagination model added: {} Owners on page {}", listOwners.size(), page);
 		return "owners/ownersList";
 	}
 
@@ -205,7 +209,7 @@ class OwnerController {
 	@GetMapping("/owners/{ownerId}/edit")
 	public String initUpdateOwnerForm(@PathVariable("ownerId") int ownerId, Model model) {
 		ResponseEntity<Owner> response = restTemplate.getForEntity(ownerServiceUrl + "/owners/" + ownerId, Owner.class);
-		model.addAttribute(response.getBody());
+		model.addAttribute(Objects.requireNonNull(response.getBody()));
 		return VIEWS_OWNER_CREATE_OR_UPDATE_FORM;
 	}
 
@@ -213,11 +217,12 @@ class OwnerController {
 	public String processUpdateOwnerForm(@Valid Owner owner, BindingResult result, @PathVariable("ownerId") int ownerId,
 			RedirectAttributes redirectAttributes) {
 		if (result.hasErrors()) {
+			redirectAttributes.addFlashAttribute("error", "There was an error in updating the owner.");
 			return VIEWS_OWNER_CREATE_OR_UPDATE_FORM;
 		}
 
 		owner.setId(ownerId);
-		restTemplate.put(ownerServiceUrl + "/owners/" + ownerId, owner);
+		this.owners.save(owner);
 		redirectAttributes.addFlashAttribute("message", "Owner Values Updated");
 		return "redirect:/owners/{ownerId}";
 	}

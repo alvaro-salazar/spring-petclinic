@@ -2,6 +2,8 @@ package org.springframework.samples.petclinic.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.hateoas.RepresentationModel;
 import org.springframework.samples.petclinic.owner.Owner;
 import org.springframework.samples.petclinic.owner.Pet;
@@ -18,8 +20,7 @@ public class OwnerModel extends RepresentationModel<OwnerModel> {
 	private String address;
 	private String city;
 	private String telephone;
-	private List<PetModel> pets; // Lista de mascotas del propietario
-
+	private List<Pet> pets; // Lista de mascotas del propietario
 	// Getters and Setters
 
 	@JsonProperty("id")
@@ -82,11 +83,11 @@ public class OwnerModel extends RepresentationModel<OwnerModel> {
 		this.telephone = telephone;
 	}
 
-	public List<PetModel> getPets() {
+	public List<Pet> getPets() {
 		return pets;
 	}
 
-	public void setPets(List<PetModel> pets) {
+	public void setPets(List<Pet> pets) {
 		this.pets = pets;
 	}
 
@@ -99,7 +100,7 @@ public class OwnerModel extends RepresentationModel<OwnerModel> {
 		owner.setAddress(this.address);
 		owner.setCity(this.city);
 		owner.setTelephone(this.telephone);
-//		owner.setPets(this.pets.stream().map(PetModel::toPet).collect(Collectors.toList())); // Map pets
+		owner.setPets(this.pets); // Map pets
 		return owner;
 	}
 
