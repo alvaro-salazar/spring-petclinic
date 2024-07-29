@@ -1,0 +1,26 @@
+services:
+  owner-service:
+    image: 'alvarosalazar/owner-service:latest'
+    environment:
+      POSTGRES_URL: jdbc:postgresql://192.168.1.4:5432/petclinic
+      POSTGRES_PASS: petclinic
+      POSTGRES_USER: petclinic
+    ports:
+      - '8081:8081'
+    networks:
+      - red-backend-app
+
+  petclinic-legado:
+    image: 'alvarosalazar/petclinic-legado:latest'
+    environment:
+      POSTGRES_URL: jdbc:postgresql://192.168.1.4:5432/petclinic
+      POSTGRES_USER: petclinic
+      POSTGRES_PASS: petclinic
+    ports:
+      - "8080:8080"
+    networks:
+      - red-backend-app
+
+networks:
+  red-backend-app:
+    driver: bridge
